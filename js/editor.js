@@ -4,37 +4,26 @@ function convertVmess(input, enableCustomTag, customTagName) {
         if (!data.add || !data.port || !data.id) return null;
         
         const transport = {};
-        if (data.net === 'ws') {
-            transport.type = 'ws';
-            transport.path = data.path || '/';
-            transport.headers = { Host: data.host || data.add };
+        if (data.net === 'ws' || data.net === 'h2') {
+            if (data.path) transport.path = data.path;
+            if (data.host) transport.headers = { Host: data.host };
+            transport.type = data.net;
         }
         
-        let tls = {"enabled": false};
-        if (data.tls === 'tls') {
-            tls = {
-                "enabled": true,
-                "server_name": data.sni || data.add,
-                "insecure": false,
-                "alpn": ["http/1.1"],
-                "record_fragment": false,
-                "utls": {
-                    "enabled": true,
-                    "fingerprint": "chrome"
-                }
-            };
-        }
-
         return {
             type: "vmess",
-            tag: generateTag('VMess', enableCustomTag, customTagName),
+            tag: generateTag('vmess', enableCustomTag, customTagName),
             server: data.add,
             server_port: parseInt(data.port),
             uuid: data.id,
             security: data.scy || "auto",
             alter_id: parseInt(data.aid || 0),
             transport: transport,
-            tls: tls
+            tls: {
+                enabled: data.tls === 'tls',
+                insecure: true,
+                server_name: data.sni || data.add
+            }
         };
     } catch (error) {
         throw new Error('Invalid VMess configuration');
@@ -47,41 +36,29 @@ function convertVless(input, enableCustomTag, customTagName) {
         if (url.protocol.toLowerCase() !== 'vless:' || !url.hostname) return null;
         
         const address = url.hostname;
-        const port = parseInt(url.port || 443);
+        const port = url.port || 443;
         const params = new URLSearchParams(url.search);
         
         const transport = {};
         if (params.get('type') === 'ws') {
+            if (params.get('path')) transport.path = params.get('path');
+            if (params.get('host')) transport.headers = { Host: params.get('host') };
             transport.type = 'ws';
-            transport.path = params.get('path') || '/';
-            transport.headers = { Host: params.get('host') || address };
         }
         
-        let tls = {"enabled": false};
-        const tls_enabled = params.get('security') === 'tls' || [443, 2053, 2083, 2087, 2096, 8443].includes(port);
-        if (tls_enabled) {
-            tls = {
-                "enabled": true,
-                "server_name": params.get('sni') || address,
-                "insecure": false,
-                "alpn": ["http/1.1"],
-                "record_fragment": false,
-                "utls": {
-                    "enabled": true,
-                    "fingerprint": "chrome"
-                }
-            };
-        }
-
         return {
             type: "vless",
-            tag: generateTag('VLESS', enableCustomTag, customTagName),
+            tag: generateTag('vless', enableCustomTag, customTagName),
             server: address,
-            server_port: port,
+            server_port: parseInt(port),
             uuid: url.username,
             flow: params.get('flow') || '',
             transport: transport,
-            tls: tls
+            tls: {
+                enabled: true,
+                server_name: params.get('sni') || address,
+                insecure: true
+            }
         };
     } catch (error) {
         throw new Error('Invalid VLESS configuration');
@@ -95,32 +72,25 @@ function convertTrojan(input, enableCustomTag, customTagName) {
         
         const params = new URLSearchParams(url.search);
         const transport = {};
-        if (params.get('type') === 'ws') {
-            transport.type = 'ws';
-            transport.path = params.get('path') || '/';
-            transport.headers = { Host: params.get('host') || url.hostname };
+        const type = params.get('type');
+        if (type && type !== 'tcp' && params.get('path')) {
+            transport.path = params.get('path');
+            transport.type = type;
         }
         
-        const tls = {
-            "enabled": true,
-            "server_name": params.get('sni') || url.hostname,
-            "insecure": false,
-            "alpn": ["http/1.1"],
-            "record_fragment": false,
-            "utls": {
-                "enabled": true,
-                "fingerprint": "chrome"
-            }
-        };
-
         return {
             type: "trojan",
-            tag: generateTag('Trojan', enableCustomTag, customTagName),
+            tag: generateTag('trojan', enableCustomTag, customTagName),
             server: url.hostname,
             server_port: parseInt(url.port || 443),
             password: url.username,
             transport: transport,
-            tls: tls
+            tls: {
+                enabled: true,
+                server_name: params.get('sni') || url.hostname,
+                insecure: true,
+                alpn: (params.get('alpn') || '').split(',').filter(Boolean)
+            }
         };
     } catch (error) {
         throw new Error('Invalid Trojan configuration');
@@ -135,7 +105,7 @@ function convertHysteria2(input, enableCustomTag, customTagName) {
         const params = new URLSearchParams(url.search);
         return {
             type: "hysteria2",
-            tag: generateTag('Hysteria2', enableCustomTag, customTagName),
+            tag: generateTag('hysteria2', enableCustomTag, customTagName),
             server: url.hostname,
             server_port: parseInt(url.port),
             password: url.username || params.get('password') || '',
@@ -162,7 +132,7 @@ function convertShadowsocks(input, enableCustomTag, customTagName) {
         
         return {
             type: "shadowsocks",
-            tag: generateTag('SS', enableCustomTag, customTagName),
+            tag: generateTag('ss', enableCustomTag, customTagName),
             server: server,
             server_port: parseInt(port),
             method: method,
