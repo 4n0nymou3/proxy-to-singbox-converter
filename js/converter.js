@@ -352,6 +352,7 @@ async function convertConfig() {
 
     let input = document.getElementById('input').value.trim();
     const errorDiv = document.getElementById('error');
+    const enableAdBlockAndIran = document.getElementById('enableAdBlockAndIran').checked;
     const enableCustomTag = document.getElementById('enableCustomTag').checked;
     const customTagName = document.getElementById('customTagInput').value.trim();
 
@@ -424,7 +425,7 @@ async function convertConfig() {
                 throw new Error('No valid configurations found');
             }
 
-            const singboxConfig = createModernSingboxConfig(outbounds, validTags);
+            const singboxConfig = createModernSingboxConfig(outbounds, validTags, enableAdBlockAndIran);
             const jsonString = JSON.stringify(singboxConfig, null, 2);
             editor.setValue(jsonString);
             editor.clearSelection();
@@ -440,10 +441,28 @@ async function convertConfig() {
     }
 }
 
-function createModernSingboxConfig(outbounds, validTags) {
-    return {
+function createModernSingboxConfig(outbounds, validTags, enableRules) {
+    const baseConfig = {
         "log": { "level": "warn", "timestamp": true },
-        "dns": {
+        "inbounds": [
+            { "type": "tun", "tag": "tun-in", "address": ["172.18.0.1/30", "fdfe:dcba:9876::1/126"], "mtu": 9000, "auto_route": true, "strict_route": true, "endpoint_independent_nat": true, "stack": "mixed" },
+            { "type": "mixed", "tag": "mixed-in", "listen": "0.0.0.0", "listen_port": 2080 }
+        ],
+        "outbounds": [
+            { "type": "selector", "tag": "🌐 Anonymous Multi", "outbounds": ["👽 Best Ping 🚀", ...validTags, "direct"] },
+            { "type": "direct", "tag": "direct" },
+            { "type": "urltest", "tag": "👽 Best Ping 🚀", "outbounds": validTags, "url": "https://www.gstatic.com/generate_204", "interrupt_exist_connections": false, "interval": "30s" },
+            ...outbounds
+        ],
+        "ntp": { "enabled": true, "server": "time.cloudflare.com", "server_port": 123, "domain_resolver": "dns-direct", "interval": "30m", "write_to_system": false },
+        "experimental": {
+            "cache_file": { "enabled": true, "store_fakeip": true },
+            "clash_api": { "external_controller": "127.0.0.1:9090", "external_ui": "ui", "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip", "external_ui_download_detour": "direct", "default_mode": "Rule" }
+        }
+    };
+
+    if (enableRules) {
+        baseConfig.dns = {
             "servers": [
                 { "type": "https", "server": "8.8.8.8", "detour": "🌐 Anonymous Multi", "tag": "dns-remote" },
                 { "type": "udp", "server": "8.8.8.8", "server_port": 53, "tag": "dns-direct" },
@@ -459,18 +478,8 @@ function createModernSingboxConfig(outbounds, validTags) {
             ],
             "strategy": "ipv4_only",
             "independent_cache": true
-        },
-        "inbounds": [
-            { "type": "tun", "tag": "tun-in", "address": ["172.18.0.1/30", "fdfe:dcba:9876::1/126"], "mtu": 9000, "auto_route": true, "strict_route": true, "endpoint_independent_nat": true, "stack": "mixed" },
-            { "type": "mixed", "tag": "mixed-in", "listen": "0.0.0.0", "listen_port": 2080 }
-        ],
-        "outbounds": [
-            { "type": "selector", "tag": "🌐 Anonymous Multi", "outbounds": ["👽 Best Ping 🚀", ...validTags, "direct"] },
-            { "type": "direct", "tag": "direct" },
-            { "type": "urltest", "tag": "👽 Best Ping 🚀", "outbounds": validTags, "url": "https://www.gstatic.com/generate_204", "interrupt_exist_connections": false, "interval": "30s" },
-            ...outbounds
-        ],
-        "route": {
+        };
+        baseConfig.route = {
             "rules": [
                 { "ip_cidr": "172.18.0.2", "action": "hijack-dns" },
                 { "clash_mode": "Direct", "outbound": "direct" },
@@ -496,11 +505,25 @@ function createModernSingboxConfig(outbounds, validTags) {
             "auto_detect_interface": true,
             "default_domain_resolver": { "server": "dns-direct", "strategy": "prefer_ipv4", "rewrite_ttl": 60 },
             "final": "🌐 Anonymous Multi"
-        },
-        "ntp": { "enabled": true, "server": "time.cloudflare.com", "server_port": 123, "domain_resolver": "dns-direct", "interval": "30m", "write_to_system": false },
-        "experimental": {
-            "cache_file": { "enabled": true, "store_fakeip": true },
-            "clash_api": { "external_controller": "127.0.0.1:9090", "external_ui": "ui", "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip", "external_ui_download_detour": "direct", "default_mode": "Rule" }
-        }
-    };
+        };
+    } else {
+        baseConfig.dns = {
+            "servers": [
+                { "tag": "dns-proxy", "address": "httpss://8.8.8.8/dns-query", "detour": "🌐 Anonymous Multi" },
+                { "tag": "dns-direct", "address": "8.8.8.8" }
+            ],
+            "strategy": "ipv4_only"
+        };
+        baseConfig.route = {
+            "rules": [
+                { "protocol": "dns", "server": "dns-direct" },
+                { "clash_mode": "Direct", "outbound": "direct" },
+                { "clash_mode": "Global", "outbound": "🌐 Anonymous Multi" }
+            ],
+            "final": "🌐 Anonymous Multi",
+            "auto_detect_interface": true
+        };
+    }
+
+    return baseConfig;
 }
