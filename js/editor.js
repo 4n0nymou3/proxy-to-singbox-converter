@@ -37,7 +37,8 @@ function convertVmess(input, enableCustomTag, customTagName) {
             tls: tls
         };
     } catch (error) {
-        throw new Error('Invalid VMess configuration');
+        console.error('Invalid VMess configuration:', input, error);
+        return null;
     }
 }
 
@@ -84,7 +85,8 @@ function convertVless(input, enableCustomTag, customTagName) {
             tls: tls
         };
     } catch (error) {
-        throw new Error('Invalid VLESS configuration');
+        console.error('Invalid VLESS configuration:', input, error);
+        return null;
     }
 }
 
@@ -123,7 +125,8 @@ function convertTrojan(input, enableCustomTag, customTagName) {
             tls: tls
         };
     } catch (error) {
-        throw new Error('Invalid Trojan configuration');
+        console.error('Invalid Trojan configuration:', input, error);
+        return null;
     }
 }
 
@@ -146,29 +149,56 @@ function convertHysteria2(input, enableCustomTag, customTagName) {
             }
         };
     } catch (error) {
-        throw new Error('Invalid Hysteria2 configuration');
+        console.error('Invalid Hysteria2 configuration:', input, error);
+        return null;
     }
 }
 
 function convertShadowsocks(input, enableCustomTag, customTagName) {
     try {
-        const ss = input.replace('ss://', '');
-        const [serverPart, _] = ss.split('#');
-        const [methodAndPass, serverAndPort] = serverPart.split('@');
-        const [method, password] = atob(methodAndPass).split(':');
-        const [server, port] = serverAndPort.split(':');
+        const url = new URL(input);
+        if (url.protocol.toLowerCase() !== 'ss:') return null;
+
+        const server = url.hostname;
+        const port = parseInt(url.port);
         
-        if (!server || !port) return null;
+        if (!server || !port || isNaN(port)) {
+            console.error('Invalid SS config: Missing server or port.');
+            return null;
+        }
+
+        let decodedUserInfo;
+        try {
+            decodedUserInfo = atob(url.username);
+        } catch (e) {
+            console.error('Invalid SS config: Could not decode base64 user info.');
+            return null;
+        }
         
+        const userInfoParts = decodedUserInfo.split(':');
+        if (userInfoParts.length !== 2) {
+            console.error('Invalid SS config: Decoded user info is not in "method:password" format.');
+            return null;
+        }
+        
+        const method = userInfoParts[0];
+        const password = userInfoParts[1];
+        
+        if (!method || !password) {
+            console.error('Invalid SS config: Missing method or password after decoding.');
+            return null;
+        }
+
         return {
             type: "shadowsocks",
             tag: generateTag('SS', enableCustomTag, customTagName),
             server: server,
-            server_port: parseInt(port),
+            server_port: port,
             method: method,
             password: password
         };
     } catch (error) {
-        throw new Error('Invalid Shadowsocks configuration');
+        console.error('Invalid Shadowsocks configuration:', input, error);
+        return null;
     }
 }
