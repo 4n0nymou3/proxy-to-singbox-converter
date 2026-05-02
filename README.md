@@ -50,6 +50,41 @@ The converter currently supports the following proxy protocols:
 
 ## 📦 Installation
 
+### Running with Docker
+
+You can run the app as a static nginx container:
+
+```sh
+docker build -t proxy-to-singbox-converter .
+docker run --rm -p 8080:80 proxy-to-singbox-converter
+```
+
+Then open:
+
+```text
+http://localhost:8080
+```
+
+### Running with Docker Compose
+
+Start the app with Docker Compose:
+
+```sh
+docker compose up -d
+```
+
+Then open:
+
+```text
+http://localhost:8080
+```
+
+Stop the container with:
+
+```sh
+docker compose down
+```
+
 ### Cloning and Running Locally
 
 If you want to run this project locally on your device (e.g., Linux, macOS, Windows, Termux, or iSH), follow these steps:
