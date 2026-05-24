@@ -1,0 +1,7 @@
+services:
+  app:
+    build: .
+    image: proxy-to-singbox-converter:latest
+    ports:
+      - "8080:80"
+    restart: unless-stopped
