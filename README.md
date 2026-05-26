@@ -1,7 +1,7 @@
 # Proxy to Sing-box Converter
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.1.0-blue.svg?cacheSeconds=2592000" />
+  <img src="https://img.shields.io/badge/version-3.1.1-blue.svg?cacheSeconds=2592000" />
 </p>
 
 ## 🚀 Project Overview
