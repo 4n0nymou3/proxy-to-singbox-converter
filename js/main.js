@@ -12,9 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('input', checkInputType);
 
     checkInputType();
-
-    const downloadButton = document.getElementById('downloadButton');
-    downloadButton.addEventListener('click', downloadFile);
 });
 
 async function checkInputType() {
@@ -72,7 +69,7 @@ function copySubscriptionLink() {
         .catch(err => console.error('Failed to copy:', err));
 }
 
-function downloadFile() {
+function downloadJSON() {
     const content = editor.getValue();
     if (!content) return;
     const downloadButton = document.getElementById('downloadButton');
