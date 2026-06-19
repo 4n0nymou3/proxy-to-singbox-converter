@@ -343,107 +343,102 @@ function convertFromJSON(jsonText) {
     return proxyConfigs;
 }
 
-async function convertConfig() {
-    window.vmessCount = 0;
-    window.vlessCount = 0;
-    window.trojanCount = 0;
-    window.hysteria2Count = 0;
-    window.ssCount = 0;
+function clashProxyToSingboxOutbound(proxy) {
+    if (!proxy.type || !proxy.server || !proxy.port) return null;
+    const tag = proxy.name || (proxy.type + '-' + Math.random().toString(36).slice(2, 6));
+    const transport = {};
+    if (proxy.network === 'ws') {
+        transport.type = 'ws';
+        transport.path = proxy['ws-opts']?.path || '/';
+        if (proxy['ws-opts']?.headers?.Host) {
+            transport.headers = { Host: proxy['ws-opts'].headers.Host };
+        }
+    }
+    const hasTls = proxy.tls || proxy['reality-opts'] || proxy.type === 'trojan';
+    const tls = hasTls ? {
+        enabled: true,
+        server_name: proxy.servername || proxy.sni || proxy.server,
+        insecure: proxy['skip-cert-verify'] || false,
+        alpn: proxy.alpn || ['http/1.1'],
+        utls: { enabled: true, fingerprint: proxy['client-fingerprint'] || 'chrome' }
+    } : { enabled: false };
+    if (proxy.type === 'vmess') {
+        return { type: 'vmess', tag, server: proxy.server, server_port: parseInt(proxy.port),
+            uuid: proxy.uuid, security: proxy.cipher || 'auto', alter_id: parseInt(proxy.alterId || 0),
+            transport: Object.keys(transport).length ? transport : undefined, tls };
+    } else if (proxy.type === 'vless') {
+        return { type: 'vless', tag, server: proxy.server, server_port: parseInt(proxy.port),
+            uuid: proxy.uuid, transport: Object.keys(transport).length ? transport : undefined, tls };
+    } else if (proxy.type === 'trojan') {
+        return { type: 'trojan', tag, server: proxy.server, server_port: parseInt(proxy.port),
+            password: proxy.password,
+            transport: Object.keys(transport).length ? transport : undefined,
+            tls: { enabled: true, server_name: proxy.sni || proxy.server, insecure: proxy['skip-cert-verify'] || false } };
+    } else if (proxy.type === 'hysteria2') {
+        return { type: 'hysteria2', tag, server: proxy.server, server_port: parseInt(proxy.port),
+            password: proxy.auth || proxy.password || '',
+            tls: { enabled: true, server_name: proxy.sni || proxy.server, insecure: proxy['skip-cert-verify'] !== false } };
+    } else if (proxy.type === 'ss') {
+        return { type: 'shadowsocks', tag, server: proxy.server, server_port: parseInt(proxy.port),
+            method: proxy.cipher, password: proxy.password };
+    }
+    return null;
+}
+
+async function convertToSingbox() {
+    window.vmessCount = 0; window.vlessCount = 0; window.trojanCount = 0;
+    window.hysteria2Count = 0; window.ssCount = 0;
 
     let input = document.getElementById('input').value.trim();
     const errorDiv = document.getElementById('error');
     const enableCustomTag = document.getElementById('enableCustomTag').checked;
     const customTagName = document.getElementById('customTagInput').value.trim();
 
-    if (!input) {
-        errorDiv.textContent = 'Please enter proxy configurations or Sing-box JSON';
-        return;
-    }
-
+    if (!input) { errorDiv.textContent = 'Please enter proxy configurations'; return; }
     startLoading();
-
     try {
         if (isLink(input)) {
             const content = await fetchContent(input);
-            if (content && isSingboxJSON(content)) {
-                input = content;
-            } else if (content) {
-                input = content;
-            }
+            if (content) input = content;
         } else if (isDataUriBase64(input)) {
-            try {
-                const base64Part = extractBase64FromDataUri(input);
-                const decoded = atob(base64Part);
-                if (isSingboxJSON(decoded)) {
-                    input = decoded;
-                } else {
-                    input = decoded;
-                }
-            } catch (e) {
-                console.error('Failed to decode data URI:', e);
-            }
+            try { const b = extractBase64FromDataUri(input); input = atob(b); } catch (e) {}
         }
 
-        if (isSingboxJSON(input)) {
-            const proxyConfigs = convertFromJSON(input);
-            editor.setValue(proxyConfigs.join('\n'));
-            editor.clearSelection();
-            errorDiv.textContent = '';
-            document.getElementById('downloadButton').disabled = false;
-            document.getElementById('downloadButton').textContent = 'Download TXT';
-            window.lastConversionFormat = 'urls';
-        } else if (isClashConfig(input)) {
-            const proxyConfigs = convertFromClashConfig(input);
-            if (proxyConfigs.length === 0) throw new Error('No proxy configurations found in Clash config');
-            editor.setValue(proxyConfigs.join('\n'));
-            editor.clearSelection();
-            errorDiv.textContent = '';
-            document.getElementById('downloadButton').disabled = false;
-            document.getElementById('downloadButton').textContent = 'Download TXT';
-            window.lastConversionFormat = 'urls';
+        const outbounds = [], validTags = [];
+
+        if (isClashConfig(input)) {
+            let config;
+            try { config = JSON.parse(input); } catch(e) { config = jsyaml.load(input); }
+            for (const proxy of (config.proxies || [])) {
+                try {
+                    const outbound = clashProxyToSingboxOutbound(proxy);
+                    if (outbound) { outbounds.push(outbound); validTags.push(outbound.tag); }
+                } catch(e) { continue; }
+            }
         } else {
             const configs = await extractStandardConfigs(input);
-            const outbounds = [];
-            const validTags = [];
-
             for (const config of configs) {
                 let converted;
                 try {
-                    if (config.startsWith('vmess://')) {
-                        converted = convertVmess(config, enableCustomTag, customTagName);
-                    } else if (config.startsWith('vless://')) {
-                        converted = convertVless(config, enableCustomTag, customTagName);
-                    } else if (config.startsWith('trojan://')) {
-                        converted = convertTrojan(config, enableCustomTag, customTagName);
-                    } else if (config.startsWith('hysteria2://') || config.startsWith('hy2://')) {
-                        converted = convertHysteria2(config, enableCustomTag, customTagName);
-                    } else if (config.startsWith('ss://')) {
-                        converted = convertShadowsocks(config, enableCustomTag, customTagName);
-                    }
-                } catch (e) {
-                    console.error(`Failed to convert config: ${config}`, e);
-                    continue;
-                }
-
-                if (converted) {
-                    outbounds.push(converted);
-                    validTags.push(converted.tag);
-                }
+                    if (config.startsWith('vmess://')) converted = convertVmess(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('vless://')) converted = convertVless(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('trojan://')) converted = convertTrojan(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('hysteria2://') || config.startsWith('hy2://')) converted = convertHysteria2(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('ss://')) converted = convertShadowsocks(config, enableCustomTag, customTagName);
+                } catch (e) { continue; }
+                if (converted) { outbounds.push(converted); validTags.push(converted.tag); }
             }
-
-            if (outbounds.length === 0) {
-                throw new Error('No valid configurations found');
-            }
-
-            const singboxConfig = createModernSingboxConfig(outbounds, validTags);
-            const jsonString = JSON.stringify(singboxConfig, null, 2);
-            editor.setValue(jsonString);
-            editor.clearSelection();
-            errorDiv.textContent = '';
-            document.getElementById('downloadButton').disabled = false;
-            document.getElementById('downloadButton').textContent = 'Download JSON';
-            window.lastConversionFormat = 'singbox';
         }
+
+        if (outbounds.length === 0) throw new Error('No valid configurations found');
+
+        const singboxConfig = createModernSingboxConfig(outbounds, validTags);
+        editor.setValue(JSON.stringify(singboxConfig, null, 2));
+        editor.clearSelection();
+        errorDiv.textContent = '';
+        document.getElementById('downloadButton').disabled = false;
+        document.getElementById('downloadButton').textContent = 'Download JSON';
+        window.lastConversionFormat = 'singbox';
     } catch (error) {
         errorDiv.textContent = error.message;
         editor.setValue('');
@@ -655,11 +650,7 @@ async function convertToClash() {
     const enableCustomTag = document.getElementById('enableCustomTag').checked;
     const customTagName = document.getElementById('customTagInput').value.trim();
 
-    if (!input) {
-        errorDiv.textContent = 'Please enter proxy configurations';
-        return;
-    }
-
+    if (!input) { errorDiv.textContent = 'Please enter proxy configurations'; return; }
     startLoading();
     try {
         if (isLink(input)) {
@@ -669,19 +660,32 @@ async function convertToClash() {
             try { const b = extractBase64FromDataUri(input); input = atob(b); } catch (e) {}
         }
 
-        const configs = await extractStandardConfigs(input);
         const outbounds = [], validTags = [];
-        for (const config of configs) {
-            let converted;
-            try {
-                if (config.startsWith('vmess://')) converted = convertVmess(config, enableCustomTag, customTagName);
-                else if (config.startsWith('vless://')) converted = convertVless(config, enableCustomTag, customTagName);
-                else if (config.startsWith('trojan://')) converted = convertTrojan(config, enableCustomTag, customTagName);
-                else if (config.startsWith('hysteria2://') || config.startsWith('hy2://')) converted = convertHysteria2(config, enableCustomTag, customTagName);
-                else if (config.startsWith('ss://')) converted = convertShadowsocks(config, enableCustomTag, customTagName);
-            } catch (e) { continue; }
-            if (converted) { outbounds.push(converted); validTags.push(converted.tag); }
+
+        if (isSingboxJSON(input)) {
+            const PROXY_TYPES = ['vmess', 'vless', 'trojan', 'hysteria2', 'shadowsocks'];
+            const json = JSON.parse(input);
+            for (const outbound of (json.outbounds || [])) {
+                if (PROXY_TYPES.includes(outbound.type)) {
+                    outbounds.push(outbound);
+                    validTags.push(outbound.tag);
+                }
+            }
+        } else {
+            const configs = await extractStandardConfigs(input);
+            for (const config of configs) {
+                let converted;
+                try {
+                    if (config.startsWith('vmess://')) converted = convertVmess(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('vless://')) converted = convertVless(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('trojan://')) converted = convertTrojan(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('hysteria2://') || config.startsWith('hy2://')) converted = convertHysteria2(config, enableCustomTag, customTagName);
+                    else if (config.startsWith('ss://')) converted = convertShadowsocks(config, enableCustomTag, customTagName);
+                } catch (e) { continue; }
+                if (converted) { outbounds.push(converted); validTags.push(converted.tag); }
+            }
         }
+
         if (outbounds.length === 0) throw new Error('No valid configurations found');
 
         const clashConfig = createModernClashConfig(outbounds, validTags);
@@ -691,6 +695,45 @@ async function convertToClash() {
         document.getElementById('downloadButton').disabled = false;
         document.getElementById('downloadButton').textContent = 'Download YAML';
         window.lastConversionFormat = 'clash';
+    } catch (error) {
+        errorDiv.textContent = error.message;
+        editor.setValue('');
+        document.getElementById('downloadButton').disabled = true;
+    } finally {
+        stopLoading();
+    }
+}
+
+async function extractProxyURLs() {
+    let input = document.getElementById('input').value.trim();
+    const errorDiv = document.getElementById('error');
+
+    if (!input) { errorDiv.textContent = 'Please enter a Sing-box JSON or Clash configuration'; return; }
+    startLoading();
+    try {
+        if (isLink(input)) {
+            const content = await fetchContent(input);
+            if (content) input = content;
+        } else if (isDataUriBase64(input)) {
+            try { const b = extractBase64FromDataUri(input); input = atob(b); } catch (e) {}
+        }
+
+        let proxyConfigs = [];
+        if (isSingboxJSON(input)) {
+            proxyConfigs = convertFromJSON(input);
+        } else if (isClashConfig(input)) {
+            proxyConfigs = convertFromClashConfig(input);
+        } else {
+            throw new Error('Input is not a valid Sing-box JSON or Clash configuration');
+        }
+        if (proxyConfigs.length === 0) throw new Error('No proxy configurations found in the input');
+
+        editor.setValue(proxyConfigs.join('\n'));
+        editor.clearSelection();
+        errorDiv.textContent = '';
+        document.getElementById('downloadButton').disabled = false;
+        document.getElementById('downloadButton').textContent = 'Download TXT';
+        window.lastConversionFormat = 'urls';
     } catch (error) {
         errorDiv.textContent = error.message;
         editor.setValue('');
