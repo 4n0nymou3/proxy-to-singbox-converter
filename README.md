@@ -1,4 +1,4 @@
-# Drill — Proxy Core Builder
+# Proxy Core Builder — Drill 
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-3.2.0-blue.svg?cacheSeconds=2592000" />
