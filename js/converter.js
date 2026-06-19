@@ -390,6 +390,17 @@ async function convertConfig() {
             editor.clearSelection();
             errorDiv.textContent = '';
             document.getElementById('downloadButton').disabled = false;
+            document.getElementById('downloadButton').textContent = 'Download TXT';
+            window.lastConversionFormat = 'urls';
+        } else if (isClashConfig(input)) {
+            const proxyConfigs = convertFromClashConfig(input);
+            if (proxyConfigs.length === 0) throw new Error('No proxy configurations found in Clash config');
+            editor.setValue(proxyConfigs.join('\n'));
+            editor.clearSelection();
+            errorDiv.textContent = '';
+            document.getElementById('downloadButton').disabled = false;
+            document.getElementById('downloadButton').textContent = 'Download TXT';
+            window.lastConversionFormat = 'urls';
         } else {
             const configs = await extractStandardConfigs(input);
             const outbounds = [];
@@ -430,6 +441,8 @@ async function convertConfig() {
             editor.clearSelection();
             errorDiv.textContent = '';
             document.getElementById('downloadButton').disabled = false;
+            document.getElementById('downloadButton').textContent = 'Download JSON';
+            window.lastConversionFormat = 'singbox';
         }
     } catch (error) {
         errorDiv.textContent = error.message;
@@ -461,7 +474,7 @@ function createModernSingboxConfig(outbounds, validTags) {
             "independent_cache": true
         },
         "inbounds": [
-            { "type": "tun", "tag": "tun-in", "address": ["172.18.0.1/30", "fdfe:dcba:9876::1/126"], "mtu": 9000, "auto_route": true, "strict_route": true, "endpoint_independent_nat": true, "stack": "mixed" },
+            { "type": "tun", "tag": "tun-in", "address": ["172.18.0.1/30", "fdfe:dcba:9876::1/126"], "mtu": 9000, "auto_route": true, "strict_route": true, "stack": "mixed" },
             { "type": "mixed", "tag": "mixed-in", "listen": "0.0.0.0", "listen_port": 2080 }
         ],
         "outbounds": [
@@ -472,16 +485,16 @@ function createModernSingboxConfig(outbounds, validTags) {
         ],
         "route": {
             "rules": [
-                { "ip_cidr": "172.18.0.2", "action": "hijack-dns" },
-                { "clash_mode": "Direct", "outbound": "direct" },
-                { "clash_mode": "Global", "outbound": "🌐 Anonymous Multi" },
                 { "action": "sniff" },
                 { "protocol": "dns", "action": "hijack-dns" },
+                { "clash_mode": "Direct", "outbound": "direct" },
+                { "clash_mode": "Global", "outbound": "🌐 Anonymous Multi" },
+                { "ip_is_private": true, "outbound": "direct" },
                 { "network": "udp", "action": "reject" },
                 { "rule_set": ["geosite-malware", "geosite-phishing", "geosite-cryptominers", "geosite-category-ads-all"], "action": "reject" },
                 { "rule_set": ["geoip-malware", "geoip-phishing"], "action": "reject" },
-                { "rule_set": ["geosite-ir"], "action": "route", "outbound": "direct" },
-                { "rule_set": ["geoip-ir"], "action": "route", "outbound": "direct" }
+                { "rule_set": ["geosite-ir"], "outbound": "direct" },
+                { "rule_set": ["geoip-ir"], "outbound": "direct" }
             ],
             "rule_set": [
                 { "type": "remote", "tag": "geosite-malware", "format": "binary", "url": "https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geosite-malware.srs", "download_detour": "direct" },
@@ -503,4 +516,186 @@ function createModernSingboxConfig(outbounds, validTags) {
             "clash_api": { "external_controller": "127.0.0.1:9090", "external_ui": "ui", "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip", "external_ui_download_detour": "direct", "default_mode": "Rule" }
         }
     };
+}
+function isClashConfig(text) {
+    try {
+        const json = JSON.parse(text);
+        return json && typeof json === 'object' && json.proxies && Array.isArray(json.proxies);
+    } catch (e) {
+        try {
+            const yaml = jsyaml.load(text);
+            return yaml && typeof yaml === 'object' && yaml.proxies && Array.isArray(yaml.proxies);
+        } catch (e2) { return false; }
+    }
+}
+
+function convertFromClashConfig(text) {
+    let config;
+    try { config = JSON.parse(text); } catch (e) { config = jsyaml.load(text); }
+    const proxies = config.proxies || [];
+    const urls = [];
+    for (const proxy of proxies) {
+        let url = null;
+        try {
+            if (proxy.type === 'vmess') url = clashVmessToUrl(proxy);
+            else if (proxy.type === 'vless') url = clashVlessToUrl(proxy);
+            else if (proxy.type === 'trojan') url = clashTrojanToUrl(proxy);
+            else if (proxy.type === 'hysteria2') url = clashHysteria2ToUrl(proxy);
+            else if (proxy.type === 'ss') url = clashSsToUrl(proxy);
+        } catch (e) { continue; }
+        if (url) urls.push(url);
+    }
+    return urls;
+}
+
+function singboxOutboundToClashProxy(outbound) {
+    const { type, tag, server, server_port, transport, tls } = outbound;
+    if (!type || !server || !server_port) return null;
+    const base = { name: tag || type, server, port: server_port };
+    const wsOpts = transport?.type === 'ws' ? {
+        'ws-opts': {
+            path: transport.path || '/',
+            ...(transport.headers?.Host ? { headers: { Host: transport.headers.Host } } : {})
+        }
+    } : {};
+    const tlsFields = tls?.enabled ? {
+        tls: true, servername: tls.server_name || server,
+        'skip-cert-verify': false,
+        'client-fingerprint': tls.utls?.fingerprint || 'chrome'
+    } : {};
+    if (type === 'vmess') {
+        return { ...base, type: 'vmess', uuid: outbound.uuid, alterId: outbound.alter_id || 0,
+            cipher: outbound.security || 'auto', network: transport?.type || 'tcp', ...wsOpts, ...tlsFields };
+    } else if (type === 'vless') {
+        return { ...base, type: 'vless', uuid: outbound.uuid,
+            network: transport?.type || 'tcp', ...wsOpts, ...tlsFields };
+    } else if (type === 'trojan') {
+        return { ...base, type: 'trojan', password: outbound.password,
+            sni: tls?.server_name || server, 'skip-cert-verify': false,
+            ...(transport?.type === 'ws' ? { network: 'ws', ...wsOpts } : {}) };
+    } else if (type === 'hysteria2') {
+        return { ...base, type: 'hysteria2', auth: outbound.password || '',
+            sni: tls?.server_name || server, 'skip-cert-verify': tls?.insecure || false };
+    } else if (type === 'shadowsocks') {
+        return { ...base, type: 'ss', cipher: outbound.method, password: outbound.password };
+    }
+    return null;
+}
+
+function createModernClashConfig(outbounds, validTags) {
+    const clashProxies = outbounds.map(o => singboxOutboundToClashProxy(o)).filter(Boolean);
+    const proxyNames = clashProxies.map(p => p.name);
+    return {
+        'mixed-port': 7890,
+        'allow-lan': false,
+        'unified-delay': false,
+        'log-level': 'silent',
+        mode: 'rule',
+        'tcp-concurrent': true,
+        'geo-auto-update': true,
+        'geo-update-interval': 168,
+        'external-controller': '127.0.0.1:9090',
+        'external-ui': 'ui',
+        profile: { 'store-selected': true, 'store-fake-ip': true },
+        tun: {
+            enable: true, stack: 'mixed', 'auto-route': true, 'strict-route': true,
+            'auto-detect-interface': true, 'dns-hijack': ['any:53', 'tcp://any:53'], mtu: 9000
+        },
+        sniffer: {
+            enable: true, 'force-dns-mapping': true, 'parse-pure-ip': true, 'override-destination': true,
+            sniff: { HTTP: { ports: [80, 8080] }, TLS: { ports: [443, 8443, 2053, 2083, 2087, 2096] } }
+        },
+        dns: {
+            enable: true, 'respect-rules': true, 'use-system-hosts': false,
+            listen: '127.0.0.1:1053', ipv6: false,
+            nameserver: ['https://8.8.8.8/dns-query#✅ Anonymous Multi'],
+            'proxy-server-nameserver': ['8.8.8.8#DIRECT'],
+            'direct-nameserver': ['8.8.8.8#DIRECT'],
+            'direct-nameserver-follow-policy': true,
+            'nameserver-policy': { 'rule-set:geosite-ir': '8.8.8.8#DIRECT' },
+            'enhanced-mode': 'fake-ip',
+            'fake-ip-range': '198.18.0.1/16',
+            'fake-ip-filter-mode': 'blacklist',
+            'fake-ip-filter': ['+.lan', '+.local']
+        },
+        proxies: clashProxies,
+        'proxy-groups': [
+            { name: '✅ Anonymous Multi', type: 'select', proxies: ['🚀 Best Ping', ...proxyNames, 'DIRECT'] },
+            { name: '🚀 Best Ping', type: 'url-test', proxies: proxyNames, url: 'https://www.gstatic.com/generate_204', interval: 180, tolerance: 50 }
+        ],
+        'rule-providers': {
+            'geosite-malware': { type: 'http', format: 'text', behavior: 'domain', path: './ruleset/geosite-malware.txt', interval: 86400, url: 'https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/malware.txt' },
+            'geosite-phishing': { type: 'http', format: 'text', behavior: 'domain', path: './ruleset/geosite-phishing.txt', interval: 86400, url: 'https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/phishing.txt' },
+            'geosite-cryptominers': { type: 'http', format: 'text', behavior: 'domain', path: './ruleset/geosite-cryptominers.txt', interval: 86400, url: 'https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/cryptominers.txt' },
+            'geosite-ads': { type: 'http', format: 'text', behavior: 'domain', path: './ruleset/geosite-ads.txt', interval: 86400, url: 'https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/category-ads-all.txt' },
+            'geosite-ir': { type: 'http', format: 'text', behavior: 'domain', path: './ruleset/geosite-ir.txt', interval: 86400, url: 'https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/ir.txt' },
+            'geoip-ir': { type: 'http', format: 'text', behavior: 'ipcidr', path: './ruleset/geoip-ir.txt', interval: 86400, url: 'https://raw.githubusercontent.com/Chocolate4U/Iran-clash-rules/release/ircidr.txt' }
+        },
+        rules: [
+            'GEOIP,lan,DIRECT,no-resolve',
+            'NETWORK,udp,REJECT',
+            'RULE-SET,geosite-malware,REJECT',
+            'RULE-SET,geosite-phishing,REJECT',
+            'RULE-SET,geosite-cryptominers,REJECT',
+            'RULE-SET,geosite-ads,REJECT',
+            'RULE-SET,geosite-ir,DIRECT',
+            'RULE-SET,geoip-ir,DIRECT',
+            'MATCH,✅ Anonymous Multi'
+        ],
+        ntp: { enable: true, server: 'time.cloudflare.com', port: 123, interval: 30 }
+    };
+}
+
+async function convertToClash() {
+    window.vmessCount = 0; window.vlessCount = 0; window.trojanCount = 0;
+    window.hysteria2Count = 0; window.ssCount = 0;
+
+    let input = document.getElementById('input').value.trim();
+    const errorDiv = document.getElementById('error');
+    const enableCustomTag = document.getElementById('enableCustomTag').checked;
+    const customTagName = document.getElementById('customTagInput').value.trim();
+
+    if (!input) {
+        errorDiv.textContent = 'Please enter proxy configurations';
+        return;
+    }
+
+    startLoading();
+    try {
+        if (isLink(input)) {
+            const content = await fetchContent(input);
+            if (content) input = content;
+        } else if (isDataUriBase64(input)) {
+            try { const b = extractBase64FromDataUri(input); input = atob(b); } catch (e) {}
+        }
+
+        const configs = await extractStandardConfigs(input);
+        const outbounds = [], validTags = [];
+        for (const config of configs) {
+            let converted;
+            try {
+                if (config.startsWith('vmess://')) converted = convertVmess(config, enableCustomTag, customTagName);
+                else if (config.startsWith('vless://')) converted = convertVless(config, enableCustomTag, customTagName);
+                else if (config.startsWith('trojan://')) converted = convertTrojan(config, enableCustomTag, customTagName);
+                else if (config.startsWith('hysteria2://') || config.startsWith('hy2://')) converted = convertHysteria2(config, enableCustomTag, customTagName);
+                else if (config.startsWith('ss://')) converted = convertShadowsocks(config, enableCustomTag, customTagName);
+            } catch (e) { continue; }
+            if (converted) { outbounds.push(converted); validTags.push(converted.tag); }
+        }
+        if (outbounds.length === 0) throw new Error('No valid configurations found');
+
+        const clashConfig = createModernClashConfig(outbounds, validTags);
+        editor.setValue(JSON.stringify(clashConfig, null, 2));
+        editor.clearSelection();
+        errorDiv.textContent = '';
+        document.getElementById('downloadButton').disabled = false;
+        document.getElementById('downloadButton').textContent = 'Download YAML';
+        window.lastConversionFormat = 'clash';
+    } catch (error) {
+        errorDiv.textContent = error.message;
+        editor.setValue('');
+        document.getElementById('downloadButton').disabled = true;
+    } finally {
+        stopLoading();
+    }
 }
