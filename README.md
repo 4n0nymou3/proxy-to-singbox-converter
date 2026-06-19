@@ -1,4 +1,4 @@
-# Proxy to Sing-box Converter
+# Drill — Proxy Core Builder
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-3.2.0-blue.svg?cacheSeconds=2592000" />
@@ -6,7 +6,7 @@
 
 ## 🚀 Project Overview
 
-Proxy to Sing-box & Clash Converter is a web-based tool designed to simplify the process of converting various proxy configurations to Sing-box JSON or Clash YAML format, and vice versa. This intuitive web application supports multiple proxy protocols and can handle plain configurations, Sing-box JSON configurations, Clash YAML/JSON configurations, links (including `ssconf://`), and Base64-encoded data, making it easy for users to generate and manage configurations.
+Drill is a web-based tool that converts proxy configurations between different formats. It supports converting proxy URLs to Sing-box JSON or Clash YAML, converting between Sing-box and Clash formats directly, and extracting proxy URLs from existing Sing-box or Clash configs. It handles plain proxy URLs, subscription links, Base64-encoded data, Sing-box JSON, and Clash YAML/JSON as input.
 
 https://4n0nymou3.github.io/proxy-core-builder/
 
@@ -20,29 +20,54 @@ https://4n0nymou3.github.io/proxy-core-builder/
   - Shadowsocks (ss)
 
 - Accepts various input types:
-  - Plain proxy configurations
+  - Plain proxy URLs (`vmess://`, `vless://`, `trojan://`, `hysteria2://`, `ss://`)
+  - Subscription links (http, https, ssconf)
+  - Base64-encoded configurations
   - Sing-box JSON configurations
   - Clash YAML/JSON configurations
-  - Links (http, https, ssconf)
-  - Base64-encoded configurations
 
-- Converts proxy URLs to **Sing-box JSON** config (with Iran bypass, ad blocking, FakeIP DNS, smart routing)
-- Converts proxy URLs to **Clash/Mihomo YAML** config (with Iran bypass, ad blocking, FakeIP DNS, smart routing)
-- Extracts proxy URLs from **Sing-box JSON** or **Clash YAML/JSON** configs
-- User-friendly web interface
-- Real-time configuration conversion
-- Terminal-like aesthetic design
-- Clipboard copy functionality
-- Animated JSON configuration display
+- **Conversion matrix — all supported directions:**
+  - Proxy URLs → Sing-box JSON
+  - Proxy URLs → Clash YAML
+  - Sing-box JSON → Clash YAML
+  - Clash YAML/JSON → Sing-box JSON
+  - Sing-box JSON → Proxy URLs
+  - Clash YAML/JSON → Proxy URLs
+
+- Generated Sing-box configs include:
+  - TUN + mixed inbound (port 2080)
+  - urltest (best ping) + selector outbound groups
+  - FakeIP DNS with split routing
+  - Iran bypass via [Iran-sing-box-rules](https://github.com/Chocolate4U/Iran-sing-box-rules)
+  - Ad/malware/phishing/cryptominer blocking
+  - NTP sync via Cloudflare
+  - Clash API dashboard support (port 9090)
+
+- Generated Clash/Mihomo configs include:
+  - TUN + mixed port (7890) with sniffer
+  - url-test (best ping) + selector proxy groups
+  - FakeIP DNS with split routing
+  - Iran bypass via [Iran-clash-rules](https://github.com/Chocolate4U/Iran-clash-rules)
+  - Ad/malware/phishing/cryptominer rule-providers
+  - NTP sync via Cloudflare
+  - External controller (port 9090)
+  - Downloads as `.yaml` (JSON is valid YAML and recognized by all Clash clients)
+
+- Smart button states: buttons automatically enable/disable based on detected input type
+- Subscription link support with automatic fetch and decode via multiple CORS proxies
+- Custom tag prefix for generated outbound/proxy names
+- Paste from clipboard, URL, or file
+- Copy to clipboard and download output
 
 ## 🛠️ Supported Protocols
 
-The converter currently supports the following proxy protocols:
-- VMess
-- VLESS
-- Trojan
-- Hysteria2
-- Shadowsocks (ss)
+| Protocol | → Sing-box | → Clash | → URLs |
+|----------|:----------:|:-------:|:------:|
+| VMess    | ✅ | ✅ | ✅ |
+| VLESS    | ✅ | ✅ | ✅ |
+| Trojan   | ✅ | ✅ | ✅ |
+| Hysteria2 | ✅ | ✅ | ✅ |
+| Shadowsocks | ✅ | ✅ | ✅ |
 
 ## 🖥️ Technologies Used
 
@@ -50,6 +75,7 @@ The converter currently supports the following proxy protocols:
 - CSS3
 - JavaScript
 - Ace Editor
+- js-yaml (YAML parsing)
 - Modern web technologies
 
 ## 📦 Installation
@@ -149,12 +175,12 @@ If you need to stop the local server without closing the terminal, use one of th
 ## 🚀 How to Use
 
 1. Navigate to the web application
-2. Paste your proxy configs, Sing-box JSON, Clash YAML/JSON, links, or Base64-encoded data
-3. Choose the action:
-   - Click **"Convert to Sing-box"** to generate a full Sing-box JSON config
-   - Click **"Convert to Clash"** to generate a full Clash/Mihomo YAML config
-   - When a Sing-box or Clash config is detected, the main button changes to **"Extract Proxy Configs"** to extract proxy URLs
-4. Copy or download the generated configuration
+2. Paste your input — proxy URLs, a subscription link, Base64 data, a Sing-box JSON, or a Clash YAML/JSON
+3. The tool automatically detects the input type and enables the relevant buttons:
+   - **Convert to Sing-box** — converts proxy URLs or Clash config to Sing-box JSON (disabled when input is already Sing-box)
+   - **Convert to Clash** — converts proxy URLs or Sing-box JSON to Clash YAML (disabled when input is already Clash)
+   - **Extract Proxy URLs** — extracts proxy URLs from a Sing-box or Clash config (enabled only when Sing-box/Clash input is detected)
+4. Copy or download the output:
    - Sing-box output saves as `config.json`
    - Clash output saves as `config.yaml`
    - Extracted proxy URLs save as `config.txt`
