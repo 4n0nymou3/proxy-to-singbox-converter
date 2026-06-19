@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sing-box Config Converter and Extractor (Drill)</title>
-    <meta name="description" content="Convert your proxy configs to Sing-box configurations or extract proxy configs from Sing-box JSON with ease. Supports multiple protocols including VMess, VLESS, Trojan, Hysteria2, and Shadowsocks. Also supports Sing-box JSON extraction.">
-    <meta name="keywords" content="Sing-box, config converter, proxy, VMess, VLESS, Trojan, Hysteria2, Shadowsocks, JSON extractor">
+    <title>Sing-box &amp; Clash Config Converter and Extractor (Drill)</title>
+    <meta name="description" content="Convert proxy configs to Sing-box JSON or Clash YAML, or extract proxy configs from Sing-box/Clash configs. Supports VMess, VLESS, Trojan, Hysteria2, and Shadowsocks.">
+    <meta name="keywords" content="Sing-box, Clash, Mihomo, config converter, proxy, VMess, VLESS, Trojan, Hysteria2, Shadowsocks, JSON extractor, YAML">
     <meta name="author" content="Anonymous">
     <meta name="robots" content="index, follow">
     <meta name="googlebot" content="index, follow">
@@ -19,6 +19,7 @@
     <link href="css/style.css" rel="stylesheet">
     <link href="css/terminal.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js" defer></script>
     <script src="js/utils.js" defer></script>
     <script src="js/converter.js" defer></script>
     <script src="js/editor.js" defer></script>
@@ -29,12 +30,12 @@
     <div class="loading-screen"></div>
     <div class="terminal-container">
         <div class="terminal-header">
-            <div class="terminal-title">Sing-box Config Converter and Extractor (Drill)</div>
+            <div class="terminal-title">Sing-box &amp; Clash Config Converter and Extractor (Drill)</div>
         </div>
         <div class="terminal-content">
             <div class="version-info">
                 <div class="badge-container">
-                    <img src="https://img.shields.io/badge/version-3.1.1-blue.svg?cacheSeconds=2592000" alt="Version" class="badge" />
+                    <img src="https://img.shields.io/badge/version-3.2.0-blue.svg?cacheSeconds=2592000" alt="Version" class="badge" />
                 </div>
                 <div class="badge-container">
                     <a href="https://github.com/4n0nymou3/proxy-to-singbox-converter" target="_blank">
@@ -52,13 +53,13 @@
                 </div>
             </div>
             <div class="terminal-section">
-                <p>Enter your proxy configurations, links, Base64-encoded data, or Sing-box JSON code. Supports VMess, VLESS, Trojan, Hysteria2, Shadowsocks (ss), and Sing-box JSON. You can use plain configs, links (http, https, ssconf), Base64-encoded data, or Sing-box JSON.</p>
+                <p>Enter your proxy configurations, links, Base64-encoded data, Sing-box JSON, or Clash YAML/JSON. Supports VMess, VLESS, Trojan, Hysteria2, Shadowsocks (ss), Sing-box JSON, and Clash configs. You can use plain configs, links (http, https, ssconf), Base64-encoded data, Sing-box JSON, or Clash YAML/JSON.</p>
                 <div class="terminal-actions">
                     <button onclick="pasteFromClipboard()" class="glow-button secondary">Paste from Clipboard</button>
                     <button onclick="pasteFromURL()" class="glow-button secondary">Paste from URL</button>
                     <button onclick="pasteFromFile()" class="glow-button secondary">Paste from File</button>
                 </div>
-                <textarea id="input" class="terminal-textarea" oninput="checkInputType()" placeholder="Enter proxy configs, links (http, https, ssconf), Base64-encoded data, or Sing-box JSON here..."></textarea>
+                <textarea id="input" class="terminal-textarea" oninput="checkInputType()" placeholder="Enter proxy configs, links (http, https, ssconf), Base64-encoded data, Sing-box JSON, or Clash YAML/JSON here..."></textarea>
             </div>
             <div class="terminal-section">
                 <label class="checkbox-wrapper">
@@ -69,6 +70,7 @@
             </div>
             <div class="terminal-actions">
                 <button onclick="convertConfig()" class="glow-button primary">Convert to Sing-box</button>
+                <button onclick="convertToClash()" class="glow-button clash">Convert to Clash</button>
                 <button id="clearButton" onclick="clearAll()" class="glow-button secondary" disabled>Clear</button>
             </div>
             <div id="loading" class="loading-container">
