@@ -262,6 +262,17 @@ body {
     box-shadow: 0 4px 15px rgba(65, 72, 104, 0.3);
 }
 
+.glow-button.clash {
+    background: linear-gradient(45deg, #1a4b2a, #2ea043);
+    border-color: #2ea043;
+}
+
+.glow-button.clash:hover {
+    background: linear-gradient(45deg, #2ea043, #1a4b2a);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(46, 160, 67, 0.35);
+}
+
 .glow-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
