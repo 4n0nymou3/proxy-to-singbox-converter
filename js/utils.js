@@ -130,3 +130,58 @@ function generateTag(protocol, enableCustomTag, customTagName) {
         return `${protocol}-${generateUUID().slice(0, 8)}`;
     }
 }
+function clashVmessToUrl(proxy) {
+    if (!proxy.server || !proxy.port || !proxy.uuid) return null;
+    const data = {
+        v: "2", ps: proxy.name || "vmess", add: proxy.server, port: proxy.port,
+        id: proxy.uuid, aid: proxy.alterId || 0, scy: proxy.cipher || "auto",
+        net: proxy.network || "tcp", type: "none",
+        host: proxy['ws-opts']?.headers?.Host || "",
+        path: proxy['ws-opts']?.path || "",
+        tls: proxy.tls ? "tls" : "",
+        sni: proxy.servername || ""
+    };
+    return "vmess://" + safeBtoa(JSON.stringify(data));
+}
+
+function clashVlessToUrl(proxy) {
+    if (!proxy.server || !proxy.port || !proxy.uuid) return null;
+    const params = new URLSearchParams();
+    if (proxy.network) params.set('type', proxy.network);
+    if (proxy['ws-opts']?.path) params.set('path', proxy['ws-opts'].path);
+    if (proxy['ws-opts']?.headers?.Host) params.set('host', proxy['ws-opts'].headers.Host);
+    if (proxy.servername) params.set('sni', proxy.servername);
+    if (proxy['reality-opts']) {
+        params.set('security', 'reality');
+        if (proxy['reality-opts']['public-key']) params.set('pbk', proxy['reality-opts']['public-key']);
+        if (proxy['reality-opts']['short-id']) params.set('sid', proxy['reality-opts']['short-id']);
+    } else if (proxy.tls) {
+        params.set('security', 'tls');
+    }
+    if (proxy['client-fingerprint']) params.set('fp', proxy['client-fingerprint'] === 'random' ? 'randomized' : proxy['client-fingerprint']);
+    return `vless://${proxy.uuid}@${proxy.server}:${proxy.port}?${params.toString()}#${encodeURIComponent(proxy.name || "vless")}`;
+}
+
+function clashTrojanToUrl(proxy) {
+    if (!proxy.server || !proxy.port || !proxy.password) return null;
+    const params = new URLSearchParams();
+    if (proxy.network) params.set('type', proxy.network);
+    if (proxy['ws-opts']?.path) params.set('path', proxy['ws-opts'].path);
+    if (proxy.sni) params.set('sni', proxy.sni);
+    return `trojan://${encodeURIComponent(proxy.password)}@${proxy.server}:${proxy.port}?${params.toString()}#${encodeURIComponent(proxy.name || "trojan")}`;
+}
+
+function clashHysteria2ToUrl(proxy) {
+    if (!proxy.server || !proxy.port) return null;
+    const params = new URLSearchParams();
+    if (proxy.sni) params.set('sni', proxy.sni);
+    if (proxy['skip-cert-verify']) params.set('insecure', '1');
+    const pass = proxy.auth || proxy.password || '';
+    return `hysteria2://${encodeURIComponent(pass)}@${proxy.server}:${proxy.port}/?${params.toString()}#${encodeURIComponent(proxy.name || "hysteria2")}`;
+}
+
+function clashSsToUrl(proxy) {
+    if (!proxy.server || !proxy.port || !proxy.cipher || !proxy.password) return null;
+    const auth = safeBtoa(`${proxy.cipher}:${proxy.password}`);
+    return `ss://${auth}@${proxy.server}:${proxy.port}#${encodeURIComponent(proxy.name || "ss")}`;
+}
