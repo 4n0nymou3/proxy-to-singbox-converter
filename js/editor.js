@@ -187,20 +187,24 @@ function convertShadowsocks(input, enableCustomTag, customTagName) {
 
         let decodedUserInfo;
         try {
-            decodedUserInfo = atob(url.username);
+            decodedUserInfo = atob(decodeURIComponent(url.username));
         } catch (e) {
-            console.error('Invalid SS config: Could not decode base64 user info.');
-            return null;
+            try {
+                decodedUserInfo = atob(url.username);
+            } catch (e2) {
+                console.error('Invalid SS config: Could not decode base64 user info.');
+                return null;
+            }
         }
-        
-        const userInfoParts = decodedUserInfo.split(':');
-        if (userInfoParts.length !== 2) {
+
+        const colonIdx = decodedUserInfo.indexOf(':');
+        if (colonIdx === -1) {
             console.error('Invalid SS config: Decoded user info is not in "method:password" format.');
             return null;
         }
-        
-        const method = userInfoParts[0];
-        const password = userInfoParts[1];
+
+        const method = decodedUserInfo.slice(0, colonIdx);
+        const password = decodedUserInfo.slice(colonIdx + 1);
         
         if (!method || !password) {
             console.error('Invalid SS config: Missing method or password after decoding.');
