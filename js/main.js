@@ -1,4 +1,6 @@
 let editor;
+window.lastConversionFormat = null;
+window.detectedInputType = 'unknown';
 
 document.addEventListener('DOMContentLoaded', () => {
     editor = ace.edit("editor");
@@ -14,36 +16,72 @@ document.addEventListener('DOMContentLoaded', () => {
     checkInputType();
 });
 
-async function checkInputType() {
-    let input = document.getElementById('input').value.trim();
-    const convertButton = document.querySelector('button[onclick="convertConfig()"]');
-    const clashButton = document.querySelector('button[onclick="convertToClash()"]');
-    const downloadButton = document.getElementById('downloadButton');
+function applyButtonStates() {
+    const input = document.getElementById('input').value.trim();
+    const toSingboxBtn = document.getElementById('toSingboxBtn');
+    const toClashBtn = document.getElementById('toClashBtn');
+    const extractUrlsBtn = document.getElementById('extractUrlsBtn');
     const clearButton = document.getElementById('clearButton');
+    const downloadButton = document.getElementById('downloadButton');
 
-    if (input) {
-        clearButton.disabled = false;
-    } else {
-        clearButton.disabled = true;
+    clearButton.disabled = !input;
+
+    if (!input) {
         downloadButton.disabled = true;
+        toSingboxBtn.disabled = true;
+        toClashBtn.disabled = true;
+        extractUrlsBtn.disabled = true;
+        return;
     }
+
+    if (window.detectedInputType === 'singbox') {
+        toSingboxBtn.disabled = true;
+        toClashBtn.disabled = false;
+        extractUrlsBtn.disabled = false;
+    } else if (window.detectedInputType === 'clash') {
+        toSingboxBtn.disabled = false;
+        toClashBtn.disabled = true;
+        extractUrlsBtn.disabled = false;
+    } else {
+        toSingboxBtn.disabled = false;
+        toClashBtn.disabled = false;
+        extractUrlsBtn.disabled = true;
+    }
+}
+
+async function checkInputType() {
+    const input = document.getElementById('input').value.trim();
+
+    if (!input) {
+        window.detectedInputType = 'unknown';
+        applyButtonStates();
+        return;
+    }
+
+    let content = input;
 
     if (isLink(input)) {
-        const content = await fetchContent(input);
-        if (content && isSingboxJSON(content)) {
-            input = content;
-        }
+        window.detectedInputType = 'urls';
+        applyButtonStates();
+        try {
+            const fetched = await fetchContent(input);
+            if (fetched) content = fetched;
+        } catch (e) {}
+    } else if (isDataUriBase64(input)) {
+        try { content = atob(extractBase64FromDataUri(input)); } catch(e) {}
+    } else if (isBase64(input)) {
+        try { content = atob(input); } catch(e) {}
     }
 
-    if (isSingboxJSON(input) || isClashConfig(input)) {
-        convertButton.textContent = 'Extract Proxy Configs';
-        downloadButton.textContent = 'Download TXT';
-        if (clashButton) clashButton.disabled = true;
+    if (isSingboxJSON(content)) {
+        window.detectedInputType = 'singbox';
+    } else if (isClashConfig(content)) {
+        window.detectedInputType = 'clash';
     } else {
-        convertButton.textContent = 'Convert to Sing-box';
-        downloadButton.textContent = 'Download JSON';
-        if (clashButton) clashButton.disabled = false;
+        window.detectedInputType = 'urls';
     }
+
+    applyButtonStates();
 }
 
 function clearAll() {
@@ -51,13 +89,10 @@ function clearAll() {
     editor.setValue('');
     document.getElementById('error').textContent = '';
     document.getElementById('downloadButton').disabled = true;
-    const convertButton = document.querySelector('button[onclick="convertConfig()"]');
-    const clashButton = document.querySelector('button[onclick="convertToClash()"]');
-    const downloadButton = document.getElementById('downloadButton');
-    convertButton.textContent = 'Convert to Sing-box';
-    downloadButton.textContent = 'Download JSON';
-    if (clashButton) clashButton.disabled = false;
+    document.getElementById('downloadButton').textContent = 'Download JSON';
     window.lastConversionFormat = null;
+    window.detectedInputType = 'unknown';
+    applyButtonStates();
 }
 
 function copyToClipboard() {
