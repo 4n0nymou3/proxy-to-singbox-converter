@@ -1,12 +1,12 @@
 # Proxy to Sing-box Converter
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.1.1-blue.svg?cacheSeconds=2592000" />
+  <img src="https://img.shields.io/badge/version-3.2.0-blue.svg?cacheSeconds=2592000" />
 </p>
 
 ## 🚀 Project Overview
 
-Proxy to Sing-box Converter is a web-based tool designed to simplify the process of converting various proxy configurations to the Sing-box format and vice versa. This intuitive web application supports multiple proxy protocols and can handle plain configurations, Sing-box JSON configurations, links (including `ssconf://`), and Base64-encoded data, making it easy for users to generate and manage configurations.
+Proxy to Sing-box & Clash Converter is a web-based tool designed to simplify the process of converting various proxy configurations to Sing-box JSON or Clash YAML format, and vice versa. This intuitive web application supports multiple proxy protocols and can handle plain configurations, Sing-box JSON configurations, Clash YAML/JSON configurations, links (including `ssconf://`), and Base64-encoded data, making it easy for users to generate and manage configurations.
 
 https://4n0nymou3.github.io/proxy-to-singbox-converter/
 
@@ -22,11 +22,15 @@ https://4n0nymou3.github.io/proxy-to-singbox-converter/
 - Accepts various input types:
   - Plain proxy configurations
   - Sing-box JSON configurations
+  - Clash YAML/JSON configurations
   - Links (http, https, ssconf)
   - Base64-encoded configurations
 
+- Converts proxy URLs to **Sing-box JSON** config (with Iran bypass, ad blocking, FakeIP DNS, smart routing)
+- Converts proxy URLs to **Clash/Mihomo YAML** config (with Iran bypass, ad blocking, FakeIP DNS, smart routing)
+- Extracts proxy URLs from **Sing-box JSON** or **Clash YAML/JSON** configs
 - User-friendly web interface
-- Real-time configuration conversion (both to Sing-box and from Sing-box to proxy configs)
+- Real-time configuration conversion
 - Terminal-like aesthetic design
 - Clipboard copy functionality
 - Animated JSON configuration display
@@ -145,9 +149,15 @@ If you need to stop the local server without closing the terminal, use one of th
 ## 🚀 How to Use
 
 1. Navigate to the web application
-2. Paste your proxy configs, Sing-box JSON, links, or Base64-encoded data
-3. Click "Convert to Sing-box" or "Convert to Proxy Configs" based on the input type
+2. Paste your proxy configs, Sing-box JSON, Clash YAML/JSON, links, or Base64-encoded data
+3. Choose the action:
+   - Click **"Convert to Sing-box"** to generate a full Sing-box JSON config
+   - Click **"Convert to Clash"** to generate a full Clash/Mihomo YAML config
+   - When a Sing-box or Clash config is detected, the main button changes to **"Extract Proxy Configs"** to extract proxy URLs
 4. Copy or download the generated configuration
+   - Sing-box output saves as `config.json`
+   - Clash output saves as `config.yaml`
+   - Extracted proxy URLs save as `config.txt`
 
 ## 👨‍💻 Author
 
