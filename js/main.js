@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function checkInputType() {
     let input = document.getElementById('input').value.trim();
     const convertButton = document.querySelector('button[onclick="convertConfig()"]');
+    const clashButton = document.querySelector('button[onclick="convertToClash()"]');
     const downloadButton = document.getElementById('downloadButton');
     const clearButton = document.getElementById('clearButton');
 
@@ -34,12 +35,14 @@ async function checkInputType() {
         }
     }
 
-    if (isSingboxJSON(input)) {
-        convertButton.textContent = 'Convert to Proxy Configs';
+    if (isSingboxJSON(input) || isClashConfig(input)) {
+        convertButton.textContent = 'Extract Proxy Configs';
         downloadButton.textContent = 'Download TXT';
+        if (clashButton) clashButton.disabled = true;
     } else {
         convertButton.textContent = 'Convert to Sing-box';
         downloadButton.textContent = 'Download JSON';
+        if (clashButton) clashButton.disabled = false;
     }
 }
 
@@ -49,9 +52,12 @@ function clearAll() {
     document.getElementById('error').textContent = '';
     document.getElementById('downloadButton').disabled = true;
     const convertButton = document.querySelector('button[onclick="convertConfig()"]');
+    const clashButton = document.querySelector('button[onclick="convertToClash()"]');
     const downloadButton = document.getElementById('downloadButton');
     convertButton.textContent = 'Convert to Sing-box';
     downloadButton.textContent = 'Download JSON';
+    if (clashButton) clashButton.disabled = false;
+    window.lastConversionFormat = null;
 }
 
 function copyToClipboard() {
@@ -72,9 +78,11 @@ function copySubscriptionLink() {
 function downloadJSON() {
     const content = editor.getValue();
     if (!content) return;
-    const downloadButton = document.getElementById('downloadButton');
-    const fileType = downloadButton.textContent === 'Download TXT' ? 'txt' : 'json';
-    const blob = new Blob([content], { type: `text/${fileType}` });
+    let fileType = 'json';
+    if (window.lastConversionFormat === 'clash') fileType = 'yaml';
+    else if (window.lastConversionFormat === 'urls') fileType = 'txt';
+    const mime = fileType === 'json' ? 'application/json' : fileType === 'yaml' ? 'text/yaml' : 'text/plain';
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
