@@ -8,7 +8,7 @@
 
 Proxy to Sing-box & Clash Converter is a web-based tool designed to simplify the process of converting various proxy configurations to Sing-box JSON or Clash YAML format, and vice versa. This intuitive web application supports multiple proxy protocols and can handle plain configurations, Sing-box JSON configurations, Clash YAML/JSON configurations, links (including `ssconf://`), and Base64-encoded data, making it easy for users to generate and manage configurations.
 
-https://4n0nymou3.github.io/proxy-to-singbox-converter/
+https://4n0nymou3.github.io/proxy-core-builder/
 
 ## ✨ Features
 
@@ -59,8 +59,8 @@ The converter currently supports the following proxy protocols:
 You can run the app as a static nginx container:
 
 ```sh
-docker build -t proxy-to-singbox-converter .
-docker run --rm -p 8080:80 proxy-to-singbox-converter
+docker build -t proxy-core-builder .
+docker run --rm -p 8080:80 proxy-core-builder
 ```
 
 Then open:
@@ -95,12 +95,12 @@ If you want to run this project locally on your device (e.g., Linux, macOS, Wind
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/4n0nymou3/proxy-to-singbox-converter.git
+   git clone https://github.com/4n0nymou3/proxy-core-builder.git
    ```
 
 2. Navigate to the project directory:
    ```sh
-   cd proxy-to-singbox-converter
+   cd proxy-core-builder
    ```
 
 3. Start a local HTTP server:
