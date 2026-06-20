@@ -265,6 +265,7 @@ body {
 .glow-button.clash {
     background: linear-gradient(45deg, #1a4b2a, #2ea043);
     border-color: #2ea043;
+    color: #ffffff;
 }
 
 .glow-button.clash:hover {
@@ -273,11 +274,48 @@ body {
     box-shadow: 0 4px 15px rgba(46, 160, 67, 0.35);
 }
 
+.glow-button.extract {
+    background: linear-gradient(45deg, #7a4500, #c97b00);
+    border-color: #c97b00;
+    color: #ffffff;
+}
+
+.glow-button.extract:hover {
+    background: linear-gradient(45deg, #c97b00, #7a4500);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(201, 123, 0, 0.35);
+}
+
+.glow-button.danger {
+    background: linear-gradient(45deg, #6b0000, #b91c1c);
+    border-color: #b91c1c;
+    color: #ffffff;
+}
+
+.glow-button.danger:hover {
+    background: linear-gradient(45deg, #b91c1c, #6b0000);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(185, 28, 28, 0.35);
+}
+
 .glow-button:disabled {
-    opacity: 0.5;
+    opacity: 0.3;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+    transform: none !important;
+    box-shadow: none !important;
+    filter: grayscale(70%) brightness(0.6);
+}
+
+.glow-button:disabled::before {
+    display: none;
+}
+
+#customTagInput:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background-color: var(--terminal-bg);
+    color: var(--terminal-border);
+    border-color: rgba(65, 72, 104, 0.4);
 }
 
 .terminal-editor {
